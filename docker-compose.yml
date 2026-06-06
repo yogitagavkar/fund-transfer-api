@@ -1,0 +1,50 @@
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: fund-transfer-app
+
+    volumes:
+      - .:/var/www
+
+    depends_on:
+      - mysql
+      - redis
+
+  nginx:
+    image: nginx:latest
+
+    container_name: fund-transfer-nginx
+
+    ports:
+      - "8000:80"
+
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+
+    depends_on:
+      - app
+
+  mysql:
+    image: mysql:8
+
+    container_name: fund-transfer-mysql
+
+    environment:
+      MYSQL_DATABASE: fund_transfer
+      MYSQL_ROOT_PASSWORD: password
+
+    ports:
+      - "3307:3306"
+
+  redis:
+    image: redis:7
+
+    container_name: fund-transfer-redis
+
+    ports:
+      - "6379:6379"
