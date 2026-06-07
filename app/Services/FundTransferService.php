@@ -13,20 +13,21 @@ use App\Repositories\AccountRepository;
 use App\Repositories\TransactionRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Jobs\ProcessTransferCompleted;
+use Illuminate\Support\Facades\Cache;
 
 class FundTransferService
 {
     /**
      * Create a new class instance.
      */
-    public function __construct(public AccountRepository $accountRepository,
-        public TransactionRepository $transactionRepository)
+    public function __construct(private AccountRepository $accountRepository,
+        private TransactionRepository $transactionRepository)
     {
         
     }
 
     public function transfer(TransferDTO $dto): Transaction{
-        #
         if ($dto->referenceId) {
             $existingTransaction = Transaction::where(
                 'reference_id',
@@ -37,8 +38,19 @@ class FundTransferService
                 return $existingTransaction;
             }
         }
-        DB::beginTransaction();
+
+        $lockKey = "transfer_lock:{$dto->referenceId}";
+
+        $lock = Cache::lock($lockKey,30);
+
+        if (!$lock->get()) {
+            throw new InvalidTransferException(
+                'Transfer already being processed'
+            );
+        }
+        
         try {
+            DB::beginTransaction();
             if ($dto->amount <= 0) {
                 throw new InvalidTransferException('Transfer amount must be greater than zero.');
             }
@@ -95,6 +107,9 @@ class FundTransferService
 
             DB::commit();
 
+            Log::info('Transfer Successful',['transaction_id' => $transaction->id,'reference_id' => $dto->referenceId,'amount' => $dto->amount]);
+            ProcessTransferCompleted::dispatch(['transaction_id' => $transaction->id,'from_account' => $dto->fromAccountId,'to_account' => $dto->toAccountId,'amount' => $dto->amount,'reference_id' => $dto->referenceId]);
+
             return $transaction;
 
         } catch (\Exception $e) {
@@ -112,7 +127,11 @@ class FundTransferService
             );
 
             throw $e;
-        }
+        } finally {
+            if (isset($lock)) {
+                $lock->release();
+            }
+        }       
     }
 
     public function reverseTransfer(int $transactionId): Transaction {
@@ -135,6 +154,13 @@ class FundTransferService
 
               if (!$fromAccount || !$toAccount) {
                 throw new AccountNotFoundException();
+            }
+
+            if ($toAccount->balance < $transaction->amount)
+            {
+                throw new InvalidTransferException(
+                    'Destination account does not have sufficient balance for reversal.'
+                );
             }
 
             $fromAccount->balance +=$transaction->amount;

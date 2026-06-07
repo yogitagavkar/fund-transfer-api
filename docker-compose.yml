@@ -30,16 +30,11 @@ services:
       - app
 
   mysql:
-    image: mysql:8
+  image: mysql:8
 
-    container_name: fund-transfer-mysql
-
-    environment:
-      MYSQL_DATABASE: fund_transfer
-      MYSQL_ROOT_PASSWORD: password
-
-    ports:
-      - "3307:3306"
+  environment:
+    MYSQL_DATABASE: fund_transfer
+    MYSQL_ROOT_PASSWORD: password
 
   redis:
     image: redis:7

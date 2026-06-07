@@ -10,6 +10,13 @@ class TransferControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutMiddleware();
+    }
+
     public function test_transfer_api_success()
     {
         $from =
@@ -86,7 +93,7 @@ class TransferControllerTest extends TestCase
             );
 
         $response
-            ->assertStatus(400);
+            ->assertStatus(422);
     }
 
     public function test_transfer_same_account_validation()

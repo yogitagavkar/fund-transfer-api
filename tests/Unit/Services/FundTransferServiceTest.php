@@ -196,22 +196,6 @@ class FundTransferServiceTest extends TestCase
         );
     }
 
-    public function test_transfer_same_account_validation()
-    {
-        $account = Account::factory()->create();
-
-        $response = $this->postJson(
-            '/api/v1/transfers',
-            [
-                'from_account_id' => $account->id,
-                'to_account_id' => $account->id,
-                'amount' => 100
-            ]
-        );
-
-        $response->assertStatus(422);
-    }
-
     public function test_idempotent_transfer()
     {
         $from = Account::factory()->create([
@@ -276,36 +260,36 @@ class FundTransferServiceTest extends TestCase
 
     public function test_concurrent_transfers_with_locking()
     {
-        $from =Account::factory()->create([
-                'balance' => 100
-            ]);
+        $from = Account::factory()->create([
+            'balance' => 100
+        ]);
 
         $to = Account::factory()->create();
 
-        $dto1 = new TransferDTO(
-            $from->id,
-            $to->id,
-            50,
-            null,
-            'LOCK001'
-        );
-
-        $dto2 = new TransferDTO(
-            $from->id,
-            $to->id,
-            50,
-            null,
-            'LOCK002'
-        );
-
         $service = app(FundTransferService::class);
 
-        $service->transfer($dto1);
+        $service->transfer(
+            new TransferDTO(
+                $from->id,
+                $to->id,
+                80,
+                null,
+                'LOCK001'
+            )
+        );
 
         $this->expectException(
             InsufficientBalanceException::class
         );
 
-        $service->transfer($dto2);
+        $service->transfer(
+            new TransferDTO(
+                $from->id,
+                $to->id,
+                80,
+                null,
+                'LOCK002'
+            )
+        );
     }
 }
