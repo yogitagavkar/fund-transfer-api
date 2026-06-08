@@ -17,7 +17,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for(
-            'transfer-api',
+            'write-api',
             function (Request $request) {
 
                 return Limit::perMinute(20)
@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
         );
 
         RateLimiter::for(
-            'balance-api',
+            'read-api',
             function (Request $request) {
 
                 return Limit::perMinute(100)
